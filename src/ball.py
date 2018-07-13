@@ -12,9 +12,12 @@ class Ball:
         self.bounds = bounds
         self.color = color
         self.radius = radius
+        # self.bounce = True
 
     def update(self):
         # bounce at edges.  TODO: Fix sticky edges
+        # if (self.bounce == False) and (self.position.y + self.radius > self.bounds[1]):
+            # self.velocity.y = 0
         if self.position.x < 0 + self.radius or self.position.x > self.bounds[0] - self.radius: # screen width
             self.velocity.x *= -1
         if self.position.y < 0 + self.radius or self.position.y > self.bounds[1] - self.radius: # screen height
@@ -25,38 +28,85 @@ class Ball:
         # cast x and y to int for drawing
         pygame.draw.circle(screen, self.color, [int(self.position.x), int(self.position.y)], self.radius)
 
-# class BouncingBall(???):
-#     """
-#     ball effected by gravity
-#     """
-#     # TODO: 
+class BouncingBall(Ball):
+    """
+    ball effected by gravity
+    """
+    GRAVITY = .1
 
-# class RainbowBall(???):
-#     """
-#     Ball that changes colors
-#     """
-#     # TODO:
+    def update(self):
+        self.velocity.y += self.GRAVITY
+        super().update()
 
-# class BouncingRainbow(???):
-#     """
-#     Ball that changes color and is affected by gravity
-#     """
-#     # TODO:
+class RainbowBall(Ball):
+    """
+    Ball that changes colors
+    """
+    def update(self):
+        r = (self.color[0] + 1) % 256
+        g = (self.color[1] + 2) % 256
+        b = (self.color[2] + 3) % 256
+        self.color = [r,g,b]
+        super().update()
 
-# class KineticBall(???):
-#     """
-#     A ball that collides with other collidable balls using simple elastic circle collision
-#     """
-#     # TODO:
 
-# class KineticBouncing(???):
-#     """
-#     A ball that collides with other collidable balls using simple elastic circle collision
-#     And is affected by gravity
-#     """
+class BouncingRainbow(BouncingBall, RainbowBall):
+    """
+    Ball that changes color and is affected by gravity
+    """
+    pass
+
+
+class KineticBall(Ball):
+    """
+    A ball that collides with other collidable balls using simple elastic circle collision
+    """
+    def __init__(self, mass, object_list, bounds, position, velocity, color, radius):
+        self.object_list = object_list
+        self.mass = mass
+        self.bounce = True
+        super().__init__(bounds, position, velocity, color, radius)
+
+    def collide(self, object, relative_vector):
+        tangent = math.atan2(relative_vector.y, relative_vector.x)
+        angle1 = 0.5 * math.pi - math.atan2(self.velocity.y, self.velocity.x)
+        angle2 = 0.5 * math.pi - math.atan2(object.velocity.y, object.velocity.x)
+        angle1 = 2 * tangent - angle1
+        angle2 = 2 * tangent - angle2
+
+        object_speed = object.velocity.length()
+        self_speed = self.velocity.length()
+
+        self.velocity = Vector2(math.sin(angle1), math.cos(angle1)) * object_speed
+        object.velocity = Vector2(math.sin(angle2), math.cos(angle2)) * self_speed
+
+        angle = 0.5 * math.pi + tangent
+        while relative_vector.length() <= self.radius + object.radius:
+            self.position.x += math.sin(angle)
+            self.position.y -= math.cos(angle)
+            object.position.x -= math.sin(angle)
+            object.position.y += math.cos(angle)
+            relative_vector = self.position - object.position
     
+    def update(self):
+        index = self.object_list.index(self)
+        for object in self.object_list[index+1:]:
+            if issubclass(type(object), KineticBall) and object != self:
+                relative_vector = self.position - object.position
+                if relative_vector.length() <= self.radius + object.radius:
+                    self.collide(object, relative_vector)
+        super().update()
 
-# class AllTheThings(???):
-#     """
-#     A ball that does everything!
-#     """
+class KineticBouncing(BouncingBall, KineticBall):
+    """
+    A ball that collides with other collidable balls using simple elastic circle collision
+    And is affected by gravity
+    """
+    pass
+
+class AllTheThings(BouncingBall, KineticBall, RainbowBall):
+    """
+    A ball that does everything!
+    """
+    pass
+
